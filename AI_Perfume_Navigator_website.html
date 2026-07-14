@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Perfume Navigator（仮）| 香りを、導く。</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Shippori+Mincho:wght@500;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1E1522;
+    --ink-soft:#4A3A4F;
+    --paper:#F6F1EC;
+    --paper-2:#ECE2D8;
+    --top:#E3B23C;      /* トップノート = 柑橘系ゴールド */
+    --mid:#C15C79;       /* ミドルノート = フローラルローズ */
+    --base:#5C3A2E;      /* ラストノート = ウッディアンバー */
+    --line: rgba(30,21,34,.14);
+    --line-soft: rgba(30,21,34,.08);
+    --shadow: 0 20px 50px rgba(30,21,34,.10);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Zen Kaku Gothic New', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.serif{
+    font-family:'Shippori Mincho', serif;
+    font-weight:800;
+    margin:0;
+  }
+  .wordmark{
+    font-family:'Cormorant Garamond', serif;
+    letter-spacing:.06em;
+  }
+  a{color:inherit;}
+  img,svg{display:block;max-width:100%;}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 32px;}
+  @media (max-width:720px){ .wrap{padding:0 20px;} }
+
+  /* ---------- Header ---------- */
+  header{
+    position:sticky; top:0; z-index:50;
+    background:rgba(246,241,236,.86);
+    backdrop-filter: blur(10px);
+    border-bottom:1px solid var(--line-soft);
+  }
+  .nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 0;
+  }
+  .brand{ display:flex; align-items:baseline; gap:10px; }
+  .brand .wordmark{ font-size:22px; font-weight:600; }
+  .brand .kana{ font-size:11px; color:var(--ink-soft); letter-spacing:.3em; }
+  .nav ul{ list-style:none; display:flex; gap:34px; margin:0; padding:0; font-size:14px; }
+  .nav a.navlink{ text-decoration:none; position:relative; padding-bottom:4px; }
+  .nav a.navlink::after{
+    content:""; position:absolute; left:0; bottom:0; height:1px; width:0;
+    background:var(--mid); transition:width .25s ease;
+  }
+  .nav a.navlink:hover::after{ width:100%; }
+  .nav .cta{
+    font-size:13px; padding:10px 20px; border:1px solid var(--ink);
+    border-radius:100px; text-decoration:none; transition:.25s ease;
+  }
+  .nav .cta:hover{ background:var(--ink); color:var(--paper); }
+  .navtoggle{display:none;}
+  @media (max-width:820px){
+    .nav ul{display:none;}
+    .navtoggle{display:block; font-size:13px; border:1px solid var(--ink); padding:8px 16px; border-radius:100px; background:none; font-family:inherit;}
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{ padding:96px 0 60px; overflow:hidden; }
+  .hero-grid{ display:grid; grid-template-columns:1.05fr .95fr; gap:60px; align-items:center; }
+  @media (max-width:900px){ .hero-grid{ grid-template-columns:1fr; } }
+  .eyebrow{
+    font-size:12px; letter-spacing:.28em; color:var(--mid);
+    display:flex; align-items:center; gap:10px; margin-bottom:22px;
+  }
+  .eyebrow::before{ content:""; width:26px; height:1px; background:var(--mid); }
+  .hero h1{
+    font-size:clamp(34px,4.4vw,54px); line-height:1.5; letter-spacing:.01em;
+  }
+  .hero h1 em{ font-style:normal; color:var(--mid); }
+  .hero p.lede{
+    margin-top:26px; font-size:16px; line-height:2; color:var(--ink-soft); max-width:46ch;
+  }
+  .hero-ctas{ display:flex; gap:16px; margin-top:36px; flex-wrap:wrap; }
+  .btn-primary{
+    background:var(--ink); color:var(--paper); text-decoration:none;
+    padding:15px 30px; border-radius:100px; font-size:14px; letter-spacing:.04em;
+    display:inline-flex; align-items:center; gap:8px; transition:.25s ease;
+  }
+  .btn-primary:hover{ background:var(--mid); }
+  .btn-ghost{
+    text-decoration:none; padding:15px 26px; border-radius:100px; font-size:14px;
+    border:1px solid var(--line); color:var(--ink-soft); transition:.25s ease;
+  }
+  .btn-ghost:hover{ border-color:var(--ink); color:var(--ink); }
+
+  /* Pyramid signature visual */
+  .pyramid-wrap{ position:relative; display:flex; justify-content:center; }
+  .pyramid-labels{ position:absolute; inset:0; pointer-events:none; }
+  .pyramid-note{
+    position:absolute; font-size:11px; letter-spacing:.14em; color:var(--ink-soft);
+    display:flex; align-items:center; gap:8px;
+  }
+  .pyramid-note .dot{ width:7px; height:7px; border-radius:50%; }
+  .note-top{ top:8%; left:-4%; }
+  .note-top .dot{ background:var(--top); }
+  .note-mid{ top:44%; right:-8%; }
+  .note-mid .dot{ background:var(--mid); }
+  .note-base{ bottom:4%; left:2%; }
+  .note-base .dot{ background:var(--base); }
+
+  /* ---------- Section shells ---------- */
+  section{ padding:100px 0; }
+  .section-head{ max-width:640px; margin-bottom:56px; }
+  .section-head .eyebrow{ margin-bottom:16px; }
+  .section-head h2{ font-size:clamp(26px,3vw,36px); line-height:1.55; }
+  .section-head p{ margin-top:18px; color:var(--ink-soft); line-height:1.9; font-size:15px; }
+
+  /* ---------- Problem strips (mouillette / blotter cards) ---------- */
+  .strips{ display:grid; grid-template-columns:repeat(3,1fr); gap:26px; }
+  @media (max-width:820px){ .strips{ grid-template-columns:1fr; } }
+  .strip{
+    background:var(--paper); border:1px solid var(--line);
+    border-radius:6px 6px 2px 2px; padding:34px 26px 30px;
+    position:relative; box-shadow:var(--shadow);
+    transform:rotate(var(--r,0deg));
+  }
+  .strip:nth-child(1){ --r:-1.4deg; }
+  .strip:nth-child(2){ --r:0.8deg; }
+  .strip:nth-child(3){ --r:-0.6deg; }
+  .strip::before{
+    content:""; position:absolute; top:-10px; left:50%; transform:translateX(-50%);
+    width:34px; height:14px; border-radius:2px; background:var(--paper-2);
+    border:1px solid var(--line);
+  }
+  .strip .num{ font-family:'Cormorant Garamond',serif; font-size:13px; color:var(--mid); letter-spacing:.1em; }
+  .strip h3{ font-size:18px; margin-top:14px; line-height:1.6; font-weight:600; }
+  .strip p{ margin-top:12px; font-size:13.5px; color:var(--ink-soft); line-height:1.9; }
+  .strip .bar{ height:4px; border-radius:4px; margin-top:22px; background:linear-gradient(90deg,var(--top),var(--mid) 50%,var(--base)); opacity:.5; }
+
+  /* ---------- Feature triptych ---------- */
+  .features{ display:grid; grid-template-columns:repeat(3,1fr); gap:0; border:1px solid var(--line); border-radius:14px; overflow:hidden; background:#fff; }
+  @media (max-width:820px){ .features{ grid-template-columns:1fr; } }
+  .feature{ padding:38px 32px; border-right:1px solid var(--line); }
+  .feature:last-child{ border-right:none; }
+  @media (max-width:820px){ .feature{ border-right:none; border-bottom:1px solid var(--line);} .feature:last-child{border-bottom:none;} }
+  .feature .ico{
+    width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:var(--paper-2); margin-bottom:20px; font-family:'Cormorant Garamond',serif; font-style:italic; font-size:18px; color:var(--mid);
+  }
+  .feature h3{ font-size:17px; font-weight:600; margin-bottom:10px; }
+  .feature p{ font-size:13.5px; color:var(--ink-soft); line-height:1.9; margin:0; }
+
+  /* ---------- Demo section ---------- */
+  .demo-shell{
+    background:var(--ink); color:var(--paper); border-radius:22px; padding:52px 46px 56px;
+  }
+  @media (max-width:720px){ .demo-shell{ padding:36px 22px 40px; } }
+  .demo-shell .section-head p{ color:rgba(246,241,236,.68); }
+  .demo-shell .section-head .eyebrow{ color:var(--top); }
+  .demo-shell .section-head .eyebrow::before{ background:var(--top); }
+
+  .tabs{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:34px; }
+  .tab{
+    font-family:inherit; font-size:13px; letter-spacing:.03em; color:rgba(246,241,236,.75);
+    background:rgba(246,241,236,.06); border:1px solid rgba(246,241,236,.16);
+    padding:11px 20px; border-radius:100px; cursor:pointer; transition:.2s ease;
+  }
+  .tab:hover{ border-color:rgba(246,241,236,.4); color:var(--paper); }
+  .tab.active{ background:var(--paper); color:var(--ink); border-color:var(--paper); }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; animation:fadein .35s ease; }
+  @keyframes fadein{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+
+  /* Quiz */
+  .quiz-grid{ display:grid; grid-template-columns:1fr 1fr; gap:34px; }
+  @media (max-width:820px){ .quiz-grid{ grid-template-columns:1fr; } }
+  .qgroup{ margin-bottom:26px; }
+  .qgroup .qlabel{ font-size:12px; letter-spacing:.14em; color:var(--top); margin-bottom:12px; display:block; }
+  .chips{ display:flex; flex-wrap:wrap; gap:10px; }
+  .chip{
+    font-family:inherit; font-size:13px; color:rgba(246,241,236,.85);
+    background:rgba(246,241,236,.05); border:1px solid rgba(246,241,236,.2);
+    padding:9px 16px; border-radius:100px; cursor:pointer; transition:.2s ease;
+  }
+  .chip:hover{ border-color:rgba(246,241,236,.5); }
+  .chip.sel{ background:var(--mid); border-color:var(--mid); color:#fff; }
+  .quiz-run{
+    margin-top:8px; background:var(--top); color:var(--ink); border:none; border-radius:100px;
+    padding:14px 30px; font-family:inherit; font-size:14px; cursor:pointer; letter-spacing:.03em;
+  }
+  .quiz-run:hover{ background:#f0c765; }
+  .quiz-hint{ font-size:12px; color:rgba(246,241,236,.5); margin-top:10px; }
+
+  .results{ margin-top:8px; }
+  .result-card{
+    background:rgba(246,241,236,.05); border:1px solid rgba(246,241,236,.14); border-radius:14px;
+    padding:22px 24px; margin-bottom:14px; display:grid; grid-template-columns:auto 1fr auto; gap:20px; align-items:center;
+  }
+  @media (max-width:640px){ .result-card{ grid-template-columns:1fr; } }
+  .match-ring{
+    width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:'Cormorant Garamond',serif; font-size:16px; flex-shrink:0;
+    background:conic-gradient(var(--top) calc(var(--pct,0)*1%), rgba(246,241,236,.12) 0);
+  }
+  .match-ring span{
+    width:50px; height:50px; border-radius:50%; background:var(--ink); display:flex; align-items:center; justify-content:center;
+  }
+  .result-name{ font-family:'Shippori Mincho',serif; font-size:17px; font-weight:600; }
+  .result-house{ font-size:11px; letter-spacing:.1em; color:rgba(246,241,236,.5); margin-top:2px; }
+  .result-why{ font-size:12.5px; color:rgba(246,241,236,.65); margin-top:8px; line-height:1.8; }
+  .tagrow{ display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .tagpill{ font-size:11px; padding:4px 10px; border-radius:100px; background:rgba(246,241,236,.08); color:rgba(246,241,236,.7); }
+  .result-price{ font-family:'Cormorant Garamond',serif; font-size:18px; text-align:right; white-space:nowrap; }
+
+  /* Tag search */
+  .tag-cloud{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:30px; }
+  .grid-cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  @media (max-width:900px){ .grid-cards{ grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:600px){ .grid-cards{ grid-template-columns:1fr;} }
+  .p-card{
+    background:rgba(246,241,236,.05); border:1px solid rgba(246,241,236,.14); border-radius:14px; padding:20px;
+  }
+  .p-card .swatch{ width:100%; height:64px; border-radius:8px; margin-bottom:14px; }
+  .p-card h4{ font-family:'Shippori Mincho',serif; font-size:15.5px; font-weight:600; margin:0 0 4px; }
+  .p-card .house{ font-size:10.5px; letter-spacing:.1em; color:rgba(246,241,236,.5); margin-bottom:10px; }
+  .p-card .notes-line{ font-size:12px; color:rgba(246,241,236,.65); line-height:1.7; }
+  .empty-note{ font-size:13px; color:rgba(246,241,236,.5); padding:20px 0; }
+
+  /* Similar search */
+  .select-row{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:30px; }
+  .simbtn{
+    font-family:inherit; font-size:13px; color:rgba(246,241,236,.85);
+    background:rgba(246,241,236,.05); border:1px solid rgba(246,241,236,.2);
+    padding:12px 18px; border-radius:10px; cursor:pointer; text-align:left; transition:.2s ease;
+  }
+  .simbtn:hover{ border-color:rgba(246,241,236,.5); }
+  .simbtn.sel{ background:var(--mid); border-color:var(--mid); color:#fff; }
+
+  /* Compare */
+  .compare-picker{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:28px; }
+  .picker-chip{
+    font-family:inherit; font-size:13px; color:rgba(246,241,236,.85);
+    background:rgba(246,241,236,.05); border:1px solid rgba(246,241,236,.2);
+    padding:10px 16px; border-radius:100px; cursor:pointer; transition:.2s ease;
+  }
+  .picker-chip.sel{ background:var(--top); color:var(--ink); border-color:var(--top); }
+  table.cmp{ width:100%; border-collapse:collapse; font-size:13px; }
+  table.cmp th, table.cmp td{ padding:14px 12px; border-bottom:1px solid rgba(246,241,236,.14); text-align:left; vertical-align:top; }
+  table.cmp th{ color:rgba(246,241,236,.5); font-weight:400; font-size:11px; letter-spacing:.08em; }
+  table.cmp td.metric-label{ color:rgba(246,241,236,.55); white-space:nowrap; }
+  .meter{ height:6px; border-radius:6px; background:rgba(246,241,236,.12); overflow:hidden; width:120px; }
+  .meter i{ display:block; height:100%; background:var(--mid); }
+
+  /* ---------- How it works ---------- */
+  .flow{ display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+  @media (max-width:900px){ .flow{ grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:560px){ .flow{ grid-template-columns:1fr;} }
+  .flow-step{ padding:26px 22px; border:1px solid var(--line); border-radius:14px; background:#fff; position:relative; }
+  .flow-step .fnum{ font-family:'Cormorant Garamond',serif; font-style:italic; font-size:26px; color:var(--mid); }
+  .flow-step h4{ font-size:14.5px; font-weight:600; margin:14px 0 8px; }
+  .flow-step p{ font-size:12.5px; color:var(--ink-soft); line-height:1.8; margin:0; }
+
+  /* ---------- Footer ---------- */
+  footer{ background:var(--ink); color:rgba(246,241,236,.6); padding:70px 0 34px; }
+  .foot-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:40px; flex-wrap:wrap; padding-bottom:44px; border-bottom:1px solid rgba(246,241,236,.14); }
+  .foot-brand .wordmark{ color:var(--paper); font-size:22px; }
+  .foot-brand p{ margin-top:14px; font-size:13px; line-height:1.9; max-width:36ch; }
+  .foot-cta a{ display:inline-flex; align-items:center; gap:8px; color:var(--paper); text-decoration:none; font-size:14px; border-bottom:1px solid rgba(246,241,236,.3); padding-bottom:4px; }
+  .foot-bottom{ display:flex; justify-content:space-between; padding-top:26px; font-size:11.5px; flex-wrap:wrap; gap:10px; }
+
+  ::selection{ background:var(--mid); color:#fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <div class="brand">
+      <span class="wordmark">AI Perfume Navigator</span>
+      <span class="kana">仮 ・ 香りを、導く。</span>
+    </div>
+    <ul>
+      <li><a class="navlink" href="#problem">課題</a></li>
+      <li><a class="navlink" href="#features">機能</a></li>
+      <li><a class="navlink" href="#demo">デモを試す</a></li>
+      <li><a class="navlink" href="#flow">仕組み</a></li>
+    </ul>
+    <a class="cta" href="#demo">診断してみる</a>
+  </div>
+</header>
+
+<!-- ---------------- HERO ---------------- -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">AI PERFUME NAVIGATOR</div>
+      <h1>香りは、<br>選ぶ時代から、<br><em>導かれる</em>時代へ。</h1>
+      <p class="lede">年齢・性格・好み・利用シーンをもとに、AIがあなたに合う一本を提案。イメージ検索、類似香水検索、比較機能で、「試せない」というネット購入の壁を越えます。</p>
+      <div class="hero-ctas">
+        <a class="btn-primary" href="#demo">AI診断デモを試す →</a>
+        <a class="btn-ghost" href="#features">できることを見る</a>
+      </div>
+    </div>
+    <div class="pyramid-wrap">
+      <svg viewBox="0 0 360 340" width="360" height="340">
+        <polygon points="180,20 300,300 60,300" fill="none" stroke="var(--line)" stroke-width="1"/>
+        <polygon points="180,20 227,120 133,120" fill="var(--top)" opacity="0.85"/>
+        <polygon points="133,120 227,120 260,205 100,205" fill="var(--mid)" opacity="0.85"/>
+        <polygon points="100,205 260,205 300,300 60,300" fill="var(--base)" opacity="0.9"/>
+        <line x1="60" y1="300" x2="300" y2="300" stroke="var(--ink)" stroke-width="1.4"/>
+      </svg>
+      <div class="pyramid-labels">
+        <div class="pyramid-note note-top"><span class="dot"></span>TOP NOTE / 香りの第一印象</div>
+        <div class="pyramid-note note-mid"><span class="dot"></span>MIDDLE NOTE / 香りの個性</div>
+        <div class="pyramid-note note-base"><span class="dot"></span>BASE NOTE / 香りの余韻</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------------- PROBLEM ---------------- -->
+<section id="problem">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">解決したい課題</div>
+      <h2>香水市場は拡大している。<br>それでも「選ぶ」は、まだ難しい。</h2>
+    </div>
+    <div class="strips">
+      <div class="strip">
+        <div class="num">Blotter No.1</div>
+        <h3>自分に合う香水が分からない</h3>
+        <p>種類が多すぎて、専門知識がないと選びきれない。何を基準にすればいいのか、そもそも分からない。</p>
+        <div class="bar"></div>
+      </div>
+      <div class="strip">
+        <div class="num">Blotter No.2</div>
+        <h3>ネット購入では香りを試せない</h3>
+        <p>実店舗のようにテスターで嗅ぐことができず、写真とレビューだけで判断するしかない。</p>
+        <div class="bar"></div>
+      </div>
+      <div class="strip">
+        <div class="num">Blotter No.3</div>
+        <h3>イメージと違って失敗する</h3>
+        <p>期待していた香りと違い、後悔してしまう。高価な香水ほど、その失敗は痛い。</p>
+        <div class="bar"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------------- FEATURES ---------------- -->
+<section id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">3つのコア機能</div>
+      <h2>探す・比べる・当てる。<br>3つの入口から、香りに出会う。</h2>
+      <p>言葉から探す、好きな香水から探す、候補を並べて選ぶ ―― 人によって「選び方」は違う。だからこそ、入口を一つに絞らない。</p>
+    </div>
+    <div class="features">
+      <div class="feature">
+        <div class="ico">Aa</div>
+        <h3>イメージ検索</h3>
+        <p>「爽やか」「大人っぽい」「かわいい」といった言葉のイメージから、AIが香りの系統に変換して候補を絞り込みます。</p>
+      </div>
+      <div class="feature">
+        <div class="ico">≈</div>
+        <h3>類似香水検索</h3>
+        <p>好きな香水を選ぶと、香りの構成が近い商品をAIが提案。廃番になった愛用香水の代わりも見つけやすくなります。</p>
+      </div>
+      <div class="feature">
+        <div class="ico">▥</div>
+        <h3>比較機能</h3>
+        <p>香調・強さ・持続時間・価格帯を一画面に並べて比較。カタログを何度も行き来する手間をなくします。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------------- DEMO ---------------- -->
+<section id="demo">
+  <div class="wrap">
+    <div class="demo-shell">
+      <div class="section-head">
+        <div class="eyebrow">TRY THE PROTOTYPE</div>
+        <h2 style="color:var(--paper)">実際に動かして試せる、簡易デモ</h2>
+        <p>本ページ内で完結する試作版です。実データではなく、企画検討用のサンプル香水（架空ブランド）で動作を再現しています。</p>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="quiz">① AI診断</button>
+        <button class="tab" data-tab="tag">② イメージ検索</button>
+        <button class="tab" data-tab="sim">③ 類似香水検索</button>
+        <button class="tab" data-tab="cmp">④ 比較</button>
+      </div>
+
+      <!-- QUIZ PANEL -->
+      <div class="panel active" id="panel-quiz">
+        <div class="quiz-grid">
+          <div>
+            <div class="qgroup">
+              <span class="qlabel">年齢層</span>
+              <div class="chips" data-group="age">
+                <button class="chip" data-val="10s">10代</button>
+                <button class="chip" data-val="20s">20代</button>
+                <button class="chip" data-val="30s">30代</button>
+                <button class="chip" data-val="40s">40代以上</button>
+              </div>
+            </div>
+            <div class="qgroup">
+              <span class="qlabel">性格タイプ</span>
+              <div class="chips" data-group="personality">
+                <button class="chip" data-val="bright">明るい・活発</button>
+                <button class="chip" data-val="calm">落ち着いている</button>
+                <button class="chip" data-val="sweet">甘えん坊・かわいい系</button>
+                <button class="chip" data-val="cool">クール・ミステリアス</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="qgroup">
+              <span class="qlabel">好きな香りの系統</span>
+              <div class="chips" data-group="family">
+                <button class="chip" data-val="citrus">シトラス</button>
+                <button class="chip" data-val="floral">フローラル</button>
+                <button class="chip" data-val="woody">ウッディ</button>
+                <button class="chip" data-val="oriental">オリエンタル</button>
+              </div>
+            </div>
+            <div class="qgroup">
+              <span class="qlabel">利用シーン</span>
+              <div class="chips" data-group="scene">
+                <button class="chip" data-val="office">オフィス</button>
+                <button class="chip" data-val="date">デート</button>
+                <button class="chip" data-val="casual">カジュアル</button>
+                <button class="chip" data-val="formal">フォーマル</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="quiz-run" id="runQuiz">AIにおすすめを聞く</button>
+        <div class="quiz-hint" id="quizHint">各カテゴリから1つずつ選んでください（未選択でも診断できます）</div>
+        <div class="results" id="quizResults"></div>
+      </div>
+
+      <!-- TAG SEARCH PANEL -->
+      <div class="panel" id="panel-tag">
+        <div class="tag-cloud" id="tagCloud"></div>
+        <div class="grid-cards" id="tagResults"></div>
+      </div>
+
+      <!-- SIMILAR SEARCH PANEL -->
+      <div class="panel" id="panel-sim">
+        <div class="qlabel" style="margin-bottom:12px;">好きな香水を選んでください</div>
+        <div class="select-row" id="simSelect"></div>
+        <div class="grid-cards" id="simResults"></div>
+      </div>
+
+      <!-- COMPARE PANEL -->
+      <div class="panel" id="panel-cmp">
+        <div class="qlabel" style="margin-bottom:12px;">比較したい香水を2〜3つ選んでください</div>
+        <div class="compare-picker" id="cmpPicker"></div>
+        <div style="overflow-x:auto;">
+          <table class="cmp" id="cmpTable"></table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ---------------- HOW IT WORKS ---------------- -->
+<section id="flow">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">AIの仕組み（概要）</div>
+      <h2>4つのステップで、<br>「なんとなく」を「言語化」する。</h2>
+    </div>
+    <div class="flow">
+      <div class="flow-step">
+        <div class="fnum">01</div>
+        <h4>好みの分析</h4>
+        <p>年齢・性格・好みの入力から「香りの好みベクトル」を生成します。</p>
+      </div>
+      <div class="flow-step">
+        <div class="fnum">02</div>
+        <h4>マッチング</h4>
+        <p>内容ベース＋協調フィルタリングのハイブリッドAIで候補をスコアリング。</p>
+      </div>
+      <div class="flow-step">
+        <div class="fnum">03</div>
+        <h4>言語変換（NLP）</h4>
+        <p>「爽やか」等の感性語を香りの系統・特徴量に変換して検索に反映します。</p>
+      </div>
+      <div class="flow-step">
+        <div class="fnum">04</div>
+        <h4>継続学習</h4>
+        <p>評価・購入データを学習し、レコメンド精度を継続的に改善します。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <span class="wordmark">AI Perfume Navigator</span>
+        <p>香水選びに悩む人のためのAIレコメンドサービス（企画プロトタイプ）。本ページのデータはすべて架空のサンプルです。</p>
+      </div>
+      <div class="foot-cta">
+        <a href="#demo">デモを試す →</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>大学 授業発表用プロトタイプ</span>
+      <span>© AI Perfume Navigator（仮）</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* =========================================================
+   Sample dataset — fictional houses & fragrances for the demo
+   ========================================================= */
+const PERFUMES = [
+  { id:"lumen-citra", name:"Lumière Citra", house:"MAISON LUMEN", family:"citrus",
+    top:["ベルガモット","グレープフルーツ"], mid:["ネロリ","ジャスミン"], base:["ホワイトムスク"],
+    mood:["爽やか","上品","クール"], scene:["office","casual"], personality:["bright","calm"],
+    strength:2, longevity:2, price:"¥9,800", color:"#E3B23C" },
+  { id:"rose-noir", name:"Rose Noir", house:"ATELIER SEIN", family:"floral",
+    top:["ピンクペッパー","マンダリン"], mid:["ダマスクローズ","ピオニー"], base:["パチュリ","ムスク"],
+    mood:["大人っぽい","甘い","上品"], scene:["date","formal"], personality:["calm","sweet"],
+    strength:4, longevity:4, price:"¥14,200", color:"#C15C79" },
+  { id:"velour-amber", name:"Velour Amber", house:"NOIR & CIE", family:"oriental",
+    top:["サフラン","カルダモン"], mid:["アンバー","バニラ"], base:["サンダルウッド","ベンゾイン"],
+    mood:["大人っぽい","クール","甘い"], scene:["date","formal"], personality:["cool","calm"],
+    strength:5, longevity:5, price:"¥16,500", color:"#5C3A2E" },
+  { id:"petit-sucre", name:"Petit Sucre", house:"MAISON LUMEN", family:"floral",
+    top:["レッドベリー","洋梨"], mid:["ミュゲ","フリージア"], base:["ホワイトムスク","バニラ"],
+    mood:["かわいい","甘い","爽やか"], scene:["casual","date"], personality:["sweet","bright"],
+    strength:2, longevity:2, price:"¥8,400", color:"#E68FA6" },
+  { id:"cedre-gris", name:"Cèdre Gris", house:"ATELIER SEIN", family:"woody",
+    top:["ジュニパー","ブラックペッパー"], mid:["シダーウッド","ベチバー"], base:["レザー","トンカビーン"],
+    mood:["クール","大人っぽい","上品"], scene:["office","formal"], personality:["cool","calm"],
+    strength:4, longevity:4, price:"¥13,600", color:"#6E5A46" },
+  { id:"aqua-lin", name:"Aqua Lin", house:"NOIR & CIE", family:"citrus",
+    top:["シークワーサー","ミント"], mid:["シーソルト","ジャスミン"], base:["ドリフトウッド"],
+    mood:["爽やか","クール"], scene:["office","casual"], personality:["bright","cool"],
+    strength:1, longevity:2, price:"¥7,200", color:"#7FB6B0" },
+  { id:"fleur-blanche", name:"Fleur Blanche", house:"MAISON LUMEN", family:"floral",
+    top:["ライチ","ベルガモット"], mid:["チュベローズ","ジャスミン"], base:["ムスク","サンダルウッド"],
+    mood:["上品","大人っぽい","甘い"], scene:["date","formal"], personality:["calm","sweet"],
+    strength:3, longevity:3, price:"¥12,000", color:"#F1E4EA" },
+  { id:"noir-tabac", name:"Noir Tabac", house:"NOIR & CIE", family:"woody",
+    top:["カルダモン","オレンジ"], mid:["タバコリーフ","カカオ"], base:["アンバー","ウード"],
+    mood:["クール","大人っぽい"], scene:["formal","date"], personality:["cool"],
+    strength:5, longevity:5, price:"¥18,900", color:"#3F2E28" },
+  { id:"douce-pomme", name:"Douce Pomme", house:"ATELIER SEIN", family:"floral",
+    top:["青リンゴ","マンダリン"], mid:["スズラン","フリージア"], base:["ホワイトムスク"],
+    mood:["かわいい","爽やか"], scene:["casual"], personality:["sweet","bright"],
+    strength:1, longevity:1, price:"¥6,900", color:"#B8D28A" },
+  { id:"gold-santal", name:"Gold Santal", house:"MAISON LUMEN", family:"oriental",
+    top:["マンダリン","ピンクペッパー"], mid:["アイリス","サフラン"], base:["サンダルウッド","バニラ"],
+    mood:["上品","大人っぽい","クール"], scene:["formal","office"], personality:["calm","cool"],
+    strength:4, longevity:4, price:"¥15,300", color:"#C99A4B" },
+];
+
+const MOOD_TAGS = ["爽やか","大人っぽい","かわいい","上品","クール","甘い"];
+
+/* ---------------- Tabs ---------------- */
+document.querySelectorAll(".tab").forEach(tab=>{
+  tab.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("panel-"+tab.dataset.tab).classList.add("active");
+  });
+});
+
+/* ---------------- Quiz ---------------- */
+const quizState = { age:null, personality:null, family:null, scene:null };
+document.querySelectorAll("#panel-quiz .chips").forEach(group=>{
+  const key = group.dataset.group;
+  group.querySelectorAll(".chip").forEach(chip=>{
+    chip.addEventListener("click", ()=>{
+      const already = chip.classList.contains("sel");
+      group.querySelectorAll(".chip").forEach(c=>c.classList.remove("sel"));
+      if(!already){ chip.classList.add("sel"); quizState[key]=chip.dataset.val; }
+      else{ quizState[key]=null; }
+    });
+  });
+});
+
+function scorePerfume(p){
+  let score = 40; // base score so results always feel plausible
+  if(quizState.family && p.family===quizState.family) score += 25;
+  if(quizState.scene && p.scene.includes(quizState.scene)) score += 18;
+  if(quizState.personality && p.personality.includes(quizState.personality)) score += 12;
+  if(quizState.age==="10s" && p.strength<=2) score += 5;
+  if(quizState.age==="40s" && p.strength>=3) score += 5;
+  score += Math.random()*4;
+  return Math.min(97, Math.round(score));
+}
+
+function whyText(p){
+  const reasons=[];
+  if(quizState.family && p.family===quizState.family) reasons.push("好きな系統「"+familyLabel(quizState.family)+"」と一致");
+  if(quizState.scene && p.scene.includes(quizState.scene)) reasons.push("選んだシーンとの相性が高い");
+  if(quizState.personality && p.personality.includes(quizState.personality)) reasons.push("性格タイプの傾向と近い香調");
+  if(reasons.length===0) reasons.push("総合的なバランスの良さでおすすめ");
+  return reasons.join("・");
+}
+function familyLabel(f){
+  return {citrus:"シトラス",floral:"フローラル",woody:"ウッディ",oriental:"オリエンタル"}[f]||f;
+}
+
+document.getElementById("runQuiz").addEventListener("click", ()=>{
+  const scored = PERFUMES.map(p=>({p, s:scorePerfume(p)})).sort((a,b)=>b.s-a.s).slice(0,3);
+  const box = document.getElementById("quizResults");
+  box.innerHTML = scored.map(({p,s})=>`
+    <div class="result-card">
+      <div class="match-ring" style="--pct:${s}"><span>${s}%</span></div>
+      <div>
+        <div class="result-name">${p.name}</div>
+        <div class="result-house">${p.house}</div>
+        <div class="result-why">マッチ理由：${whyText(p)}</div>
+        <div class="tagrow">${p.mood.map(m=>`<span class="tagpill">${m}</span>`).join("")}</div>
+      </div>
+      <div class="result-price">${p.price}</div>
+    </div>
+  `).join("");
+  document.getElementById("quizHint").textContent = "AIが好み・性格・シーンから算出したマッチ度（サンプルデータによる簡易計算）";
+});
+
+/* ---------------- Tag / Image search ---------------- */
+const tagCloud = document.getElementById("tagCloud");
+let activeTags = new Set();
+MOOD_TAGS.forEach(tag=>{
+  const b = document.createElement("button");
+  b.className="chip"; b.textContent=tag; b.dataset.tag=tag;
+  b.addEventListener("click", ()=>{
+    if(activeTags.has(tag)){ activeTags.delete(tag); b.classList.remove("sel"); }
+    else{ activeTags.add(tag); b.classList.add("sel"); }
+    renderTagResults();
+  });
+  tagCloud.appendChild(b);
+});
+function renderTagResults(){
+  const box = document.getElementById("tagResults");
+  const list = activeTags.size===0 ? PERFUMES : PERFUMES.filter(p=>p.mood.some(m=>activeTags.has(m)));
+  box.innerHTML = list.length ? list.map(cardHTML).join("") : `<div class="empty-note">該当する香水が見つかりません。タグの組み合わせを変えてみてください。</div>`;
+}
+function cardHTML(p){
+  return `
+    <div class="p-card">
+      <div class="swatch" style="background:${p.color}"></div>
+      <h4>${p.name}</h4>
+      <div class="house">${p.house} ／ ${familyLabel(p.family)}</div>
+      <div class="notes-line">Top: ${p.top.join("・")}<br>Mid: ${p.mid.join("・")}<br>Base: ${p.base.join("・")}</div>
+      <div class="tagrow" style="margin-top:10px;">${p.mood.map(m=>`<span class="tagpill">${m}</span>`).join("")}</div>
+    </div>`;
+}
+renderTagResults();
+
+/* ---------------- Similar search ---------------- */
+const simSelect = document.getElementById("simSelect");
+let simChosen = null;
+PERFUMES.forEach(p=>{
+  const b=document.createElement("button");
+  b.className="simbtn"; b.textContent=p.name; b.dataset.id=p.id;
+  b.addEventListener("click", ()=>{
+    simSelect.querySelectorAll(".simbtn").forEach(x=>x.classList.remove("sel"));
+    b.classList.add("sel");
+    simChosen = p.id;
+    renderSimResults();
+  });
+  simSelect.appendChild(b);
+});
+function noteOverlap(a,b){
+  const na=[...a.top,...a.mid,...a.base], nb=[...b.top,...b.mid,...b.base];
+  return na.filter(n=>nb.includes(n)).length;
+}
+function renderSimResults(){
+  const box = document.getElementById("simResults");
+  if(!simChosen){ box.innerHTML = `<div class="empty-note">好きな香水を選ぶと、香りが近い候補を表示します。</div>`; return; }
+  const base = PERFUMES.find(p=>p.id===simChosen);
+  const ranked = PERFUMES.filter(p=>p.id!==base.id)
+    .map(p=>({p, overlap:noteOverlap(base,p), sameFamily:p.family===base.family}))
+    .sort((a,b)=> (b.sameFamily-a.sameFamily) || (b.overlap-a.overlap))
+    .slice(0,3);
+  box.innerHTML = ranked.map(({p,overlap,sameFamily})=>`
+    <div class="p-card">
+      <div class="swatch" style="background:${p.color}"></div>
+      <h4>${p.name}</h4>
+      <div class="house">${p.house} ／ ${familyLabel(p.family)}</div>
+      <div class="notes-line">似ている理由：${sameFamily? "同じ「"+familyLabel(p.family)+"」系統":"香調の方向性が近い"}${overlap>0? "・ノートが"+overlap+"種共通":""}</div>
+    </div>`).join("");
+}
+renderSimResults();
+
+/* ---------------- Compare ---------------- */
+const cmpPicker = document.getElementById("cmpPicker");
+let cmpChosen = [];
+PERFUMES.forEach(p=>{
+  const b=document.createElement("button");
+  b.className="picker-chip"; b.textContent=p.name; b.dataset.id=p.id;
+  b.addEventListener("click", ()=>{
+    if(cmpChosen.includes(p.id)){
+      cmpChosen = cmpChosen.filter(id=>id!==p.id);
+      b.classList.remove("sel");
+    } else {
+      if(cmpChosen.length>=3){ return; }
+      cmpChosen.push(p.id);
+      b.classList.add("sel");
+    }
+    renderCompare();
+  });
+  cmpPicker.appendChild(b);
+});
+function renderCompare(){
+  const tbl = document.getElementById("cmpTable");
+  if(cmpChosen.length===0){
+    tbl.innerHTML = `<tr><td style="padding:20px 0;color:rgba(246,241,236,.5);border:none;">香水を選ぶと、ここに比較表が表示されます。</td></tr>`;
+    return;
+  }
+  const items = cmpChosen.map(id=>PERFUMES.find(p=>p.id===id));
+  const rows = [
+    ["ブランド", p=>p.house],
+    ["系統", p=>familyLabel(p.family)],
+    ["トップノート", p=>p.top.join("・")],
+    ["ミドルノート", p=>p.mid.join("・")],
+    ["ラストノート", p=>p.base.join("・")],
+    ["香りの強さ", p=>meter(p.strength)],
+    ["持続時間", p=>meter(p.longevity)],
+    ["価格帯", p=>p.price],
+  ];
+  let html = "<tr><th>項目</th>" + items.map(p=>`<th>${p.name}</th>`).join("") + "</tr>";
+  rows.forEach(([label, fn])=>{
+    html += `<tr><td class="metric-label">${label}</td>` + items.map(p=>`<td>${fn(p)}</td>`).join("") + "</tr>";
+  });
+  tbl.innerHTML = html;
+}
+function meter(v){
+  return `<div class="meter"><i style="width:${v*20}%"></i></div>`;
+}
+renderCompare();
+</script>
+</body>
+</html>
